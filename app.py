@@ -272,7 +272,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                     yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray')
                 )
 
-                st.plotly_chart(fig_scatter, width="stretch")
+                st.plotly_chart(fig_scatter, use_container_width=True)
 
                 # 해석 가이드
                 with st.expander("💡 해석 가이드"):
@@ -389,7 +389,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                 fig.update_yaxes(title_text="수익률", row=3, col=1)
                 fig.update_yaxes(title_text="수익률", row=4, col=1)
 
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
                 # 계절성 패턴 분석 (월별 평균)
                 if seasonal_strength > 0.05:  # 계절성이 조금이라도 있으면
@@ -414,7 +414,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                         font=dict(family='Malgun Gothic', size=12)
                     )
 
-                    st.plotly_chart(fig_seasonal, width="stretch")
+                    st.plotly_chart(fig_seasonal, use_container_width=True)
 
                     st.markdown("""
                     **해석:**
@@ -563,7 +563,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                         fig.update_xaxes(showgrid=False)
                         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', range=[0, 100])
 
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
 
                 # 변동성 비율 표 및 인사이트
                 col1, col2 = st.columns([1, 1])
@@ -668,7 +668,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                     yaxis=dict(autorange='reversed')
                 )
 
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
 
                 # 상관계수 인사이트
                 st.markdown("#### 💡 상관관계 인사이트")
@@ -743,7 +743,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                             showlegend=False
                         )
 
-                        st.plotly_chart(fig2, width="stretch")
+                        st.plotly_chart(fig2, use_container_width=True)
 
                         st.info("""
                         💡 **해석**: 서로 다른 시간 스케일에서 자산 간 상관관계가 어떻게 달라지는지 보여줍니다.
