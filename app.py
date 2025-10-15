@@ -96,11 +96,11 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
         with col3:
             st.metric("시작일 ~ 종료일", f"{df.index[0].date()} ~ {df.index[-1].date()}")
 
-        st.dataframe(df.head(10), use_container_width=True)
+        st.dataframe(df.head(10), width='stretch')
 
         # 기본 통계
         with st.expander("📊 기본 통계량 보기"):
-            st.dataframe(df.describe(), use_container_width=True)
+            st.dataframe(df.describe(), width='stretch')
 
         st.divider()
 
@@ -112,7 +112,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
             analyze_button = st.button(
                 "🔍 분석 시작",
                 type="primary",
-                use_container_width=True
+                width="stretch"  # Note: Streamlit buttons don't use width parameter
             )
 
         # 분석 실행
@@ -209,7 +209,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
 
                 st.dataframe(
                     summary_display,
-                    use_container_width=True,
+                    width='stretch',
                     hide_index=True
                 )
 
@@ -247,7 +247,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                     yaxis=dict(showgrid=True, gridwidth=1, gridcolor='LightGray')
                 )
 
-                st.plotly_chart(fig_scatter, use_container_width=True)
+                st.plotly_chart(fig_scatter, width="stretch")
 
                 # 해석 가이드
                 with st.expander("💡 해석 가이드"):
@@ -391,7 +391,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                         fig.update_xaxes(showgrid=False)
                         fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', range=[0, 100])
 
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
                 # 변동성 비율 표 및 인사이트
                 col1, col2 = st.columns([1, 1])
@@ -403,7 +403,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                             vol_display[band] = vol_display[band].apply(lambda x: f"{x:.2f}%")
                         st.dataframe(
                             vol_display,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True
                         )
 
@@ -418,7 +418,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
 
                         st.dataframe(
                             ratio_display,
-                            use_container_width=True,
+                            width="stretch",
                             hide_index=True
                         )
 
@@ -496,7 +496,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                     yaxis=dict(autorange='reversed')
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
                 # 상관계수 인사이트
                 st.markdown("#### 💡 상관관계 인사이트")
@@ -571,7 +571,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                             showlegend=False
                         )
 
-                        st.plotly_chart(fig2, use_container_width=True)
+                        st.plotly_chart(fig2, width="stretch")
 
                         st.info("""
                         💡 **해석**: 서로 다른 시간 스케일에서 자산 간 상관관계가 어떻게 달라지는지 보여줍니다.
@@ -601,7 +601,7 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                 data=excel_data,
                 file_name="frequency_domain_analysis.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                width="stretch"
             )
 
     except Exception as e:
