@@ -1,15 +1,4 @@
 """
-자산의 변동을 시간 스케일별로 분해해서
-
-어떤 시간대에 변동이 큰지
-위기 때 상관관계가 어떻게 변하는지
-진짜 리스크가 어디서 오는지
-
-를 파악하는 고급 포트폴리오 분석 도구
-"""
-
-
-"""
 Frequency Domain 기반 자산군별 통계 추정 (완전 수정 버전)
 Ortec Finance 방법론 참고
 
@@ -242,11 +231,7 @@ class FrequencyDomainAnalyzer:
             
             # 해당 대역의 분산 (PSD 적분)
             if np.any(mask):
-                # numpy 버전 호환성: trapezoid (1.22+) 또는 trapz (이전 버전)
-                try:
-                    variance = np.trapezoid(psd[mask], freqs[mask])
-                except AttributeError:
-                    variance = np.trapz(psd[mask], freqs[mask])
+                variance = np.trapezoid(psd[mask], freqs[mask])
                 std_dev = np.sqrt(abs(variance))
             else:
                 std_dev = 0.0
