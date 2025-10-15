@@ -402,6 +402,94 @@ class FrequencyDomainAnalyzer:
         
         return summary_df, corr_matrix.astype(float)
 
+    def stl_decomposition(self, returns: pd.Series, period: int = 21) -> Dict[str, pd.Series]:
+        """
+        STL (Seasonal and Trend decomposition using Loess) 분해
+
+        Parameters:
+        -----------
+        returns : pd.Series
+            자산 수익률 시계열
+        period : int
+            계절성 주기 (일별 데이터: 21 = 월별, 63 = 분기별)
+
+        Returns:
+        --------
+        decomposed : Dict[str, pd.Series]
+            'original', 'trend', 'seasonal', 'residual' 시계열
+        """
+        try:
+            from statsmodels.tsa.seasonal import STL
+
+            # STL 분해 수행
+            stl = STL(returns, period=period, seasonal=13)
+            result = stl.fit()
+
+            return {
+                'original': returns,
+                'trend': result.trend,
+                'seasonal': result.seasonal,
+                'residual': result.resid
+            }
+        except Exception as e:
+            print(f"STL decomposition failed: {e}")
+            # Fallback: 단순 이동평균을 trend로 사용
+            trend = returns.rolling(window=period, center=True).mean()
+            residual = returns - trend
+            seasonal = pd.Series(0, index=returns.index)
+
+            return {
+                'original': returns,
+                'trend': trend.fillna(0),
+                'seasonal': seasonal,
+                'residual': residual.fillna(0)
+            }
+
+    def generate_stl_summary(self, returns: pd.DataFrame, period: int = 21) -> pd.DataFrame:
+        """
+        전체 자산에 대한 STL 분해 요약 생성
+
+        Parameters:
+        -----------
+        returns : pd.DataFrame
+            자산들의 수익률
+        period : int
+            계절성 주기
+
+        Returns:
+        --------
+        summary : pd.DataFrame
+            자산별 STL 분해 통계량
+        """
+        stl_summary = []
+
+        for asset in returns.columns:
+            stl_result = self.stl_decomposition(returns[asset], period=period)
+
+            trend_vol = np.std(stl_result['trend'].dropna())
+            seasonal_vol = np.std(stl_result['seasonal'])
+            residual_vol = np.std(stl_result['residual'].dropna())
+            total_vol = np.std(returns[asset])
+
+            # 계절성 강도 계산
+            seasonal_strength = seasonal_vol / total_vol if total_vol > 0 else 0
+
+            # 연율화
+            if self.sampling_freq == 'D':
+                trend_vol *= np.sqrt(252)
+                seasonal_vol *= np.sqrt(252)
+                residual_vol *= np.sqrt(252)
+
+            stl_summary.append({
+                'Asset': asset,
+                'Trend_Vol': trend_vol,
+                'Seasonal_Vol': seasonal_vol,
+                'Residual_Vol': residual_vol,
+                'Seasonal_Strength': seasonal_strength
+            })
+
+        return pd.DataFrame(stl_summary)
+
 
 # 사용 예시
 def example_usage():

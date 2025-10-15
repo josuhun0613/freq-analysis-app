@@ -139,11 +139,19 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
 
                     vol_df = pd.DataFrame(volatility_data)
 
+                    # STL 분해 추가
+                    stl_summary = analyzer.generate_stl_summary(df)
+                    stl_decomposed = {}
+                    for asset in df.columns:
+                        stl_decomposed[asset] = analyzer.stl_decomposition(df[asset])
+
                     # 세션에 저장
                     st.session_state.analysis_results = {
                         'summary': summary_df,
                         'correlation': corr_matrix,
                         'volatility': vol_df,
+                        'stl_summary': stl_summary,
+                        'stl_decomposed': stl_decomposed,
                         'analyzer': analyzer
                     }
 
@@ -163,9 +171,10 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
             corr_matrix = results['correlation']
             vol_df = results['volatility']
 
-            # 탭 생성
-            tab1, tab2, tab3 = st.tabs([
+            # 탭 생성 (STL 탭 추가!)
+            tab1, tab2, tab3, tab4 = st.tabs([
                 "📊 요약 통계",
+                "🎯 STL 분해 (계절성)",
                 "📉 변동성 분해",
                 "🔗 상관계수"
             ])
@@ -263,8 +272,155 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                     **Risk-Return 산점도**: 우상향에 위치할수록 높은 수익률과 낮은 리스크를 의미합니다.
                     """)
 
-            # 탭 2: 변동성 분해 차트
+            # 탭 2: STL 분해 (새로 추가!)
             with tab2:
+                from plotly.subplots import make_subplots
+
+                st.subheader("🎯 STL 분해 - 추세, 계절성, 잔차 분석")
+
+                st.info("""
+                **STL 분해란?**
+                - **Trend (추세)**: 장기적인 상승/하락 패턴
+                - **Seasonal (계절성)**: 반복되는 주기적 패턴 (월별/분기별)
+                - **Residual (잔차)**: 단기 변동 및 노이즈
+
+                💡 계절성이 강할수록 특정 시기에 수익률 패턴이 반복됩니다.
+                """)
+
+                # 자산 선택
+                selected_asset = st.selectbox(
+                    "분석할 자산 선택",
+                    df.columns,
+                    key='stl_asset_select'
+                )
+
+                stl_data = results['stl_decomposed'][selected_asset]
+                stl_summary = results['stl_summary']
+
+                # STL 요약 통계
+                asset_stl = stl_summary[stl_summary['Asset'] == selected_asset].iloc[0]
+
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Trend 변동성", f"{asset_stl['Trend_Vol']*100:.2f}%")
+                with col2:
+                    st.metric("Seasonal 변동성", f"{asset_stl['Seasonal_Vol']*100:.2f}%")
+                with col3:
+                    st.metric("Residual 변동성", f"{asset_stl['Residual_Vol']*100:.2f}%")
+                with col4:
+                    seasonal_strength = asset_stl['Seasonal_Strength']
+                    st.metric("계절성 강도", f"{seasonal_strength:.1%}")
+
+                # 계절성 강도 해석
+                if seasonal_strength > 0.3:
+                    st.success("🟢 **강한 계절성**: 월별/분기별 패턴이 뚜렷합니다!")
+                elif seasonal_strength > 0.1:
+                    st.warning("🟡 **중간 계절성**: 일부 주기적 패턴이 관찰됩니다.")
+                else:
+                    st.info("🔵 **약한 계절성**: 뚜렷한 주기적 패턴이 없습니다.")
+
+                # STL 분해 차트 (4개 서브플롯)
+                st.markdown("#### STL 분해 결과 차트")
+
+                fig = make_subplots(
+                    rows=4, cols=1,
+                    subplot_titles=[
+                        '원본 데이터 (Original)',
+                        '추세 성분 (Trend)',
+                        '계절성 성분 (Seasonal)',
+                        '잔차 성분 (Residual)'
+                    ],
+                    vertical_spacing=0.08,
+                    row_heights=[0.25, 0.25, 0.25, 0.25]
+                )
+
+                # 원본
+                fig.add_trace(
+                    go.Scatter(x=stl_data['original'].index, y=stl_data['original'].values,
+                              mode='lines', name='Original', line=dict(color='#1f77b4')),
+                    row=1, col=1
+                )
+
+                # Trend
+                fig.add_trace(
+                    go.Scatter(x=stl_data['trend'].index, y=stl_data['trend'].values,
+                              mode='lines', name='Trend', line=dict(color='#2ca02c', width=2)),
+                    row=2, col=1
+                )
+
+                # Seasonal
+                fig.add_trace(
+                    go.Scatter(x=stl_data['seasonal'].index, y=stl_data['seasonal'].values,
+                              mode='lines', name='Seasonal', line=dict(color='#ff7f0e')),
+                    row=3, col=1
+                )
+
+                # Residual
+                fig.add_trace(
+                    go.Scatter(x=stl_data['residual'].index, y=stl_data['residual'].values,
+                              mode='lines', name='Residual', line=dict(color='#d62728', width=0.5)),
+                    row=4, col=1
+                )
+
+                fig.update_layout(
+                    height=800,
+                    showlegend=False,
+                    font=dict(family='Malgun Gothic', size=12)
+                )
+                fig.update_xaxes(title_text="날짜", row=4, col=1)
+                fig.update_yaxes(title_text="수익률", row=1, col=1)
+                fig.update_yaxes(title_text="수익률", row=2, col=1)
+                fig.update_yaxes(title_text="수익률", row=3, col=1)
+                fig.update_yaxes(title_text="수익률", row=4, col=1)
+
+                st.plotly_chart(fig, width="stretch")
+
+                # 계절성 패턴 분석 (월별 평균)
+                if seasonal_strength > 0.05:  # 계절성이 조금이라도 있으면
+                    st.markdown("#### 📅 월별 계절성 패턴")
+
+                    seasonal_monthly = stl_data['seasonal'].groupby(stl_data['seasonal'].index.month).mean()
+
+                    fig_seasonal = go.Figure()
+                    fig_seasonal.add_trace(go.Bar(
+                        x=['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+                        y=seasonal_monthly.values * 100,
+                        marker_color=['#ef4444' if x < 0 else '#10b981' for x in seasonal_monthly.values],
+                        text=[f"{x*100:.2f}%" for x in seasonal_monthly.values],
+                        textposition='outside'
+                    ))
+
+                    fig_seasonal.update_layout(
+                        title='월별 평균 계절성 패턴',
+                        xaxis_title='월',
+                        yaxis_title='평균 수익률 (%)',
+                        height=400,
+                        font=dict(family='Malgun Gothic', size=12)
+                    )
+
+                    st.plotly_chart(fig_seasonal, width="stretch")
+
+                    st.markdown("""
+                    **해석:**
+                    - 양수: 해당 월에 평균적으로 수익률이 높음
+                    - 음수: 해당 월에 평균적으로 수익률이 낮음
+                    - 패턴이 뚜렷할수록 계절성 투자 전략 활용 가능
+                    """)
+
+                # 전체 자산 STL 요약
+                st.markdown("#### 전체 자산 STL 요약")
+
+                stl_display = stl_summary.copy()
+                stl_display['Trend_Vol'] = stl_display['Trend_Vol'].apply(lambda x: f"{x*100:.2f}%")
+                stl_display['Seasonal_Vol'] = stl_display['Seasonal_Vol'].apply(lambda x: f"{x*100:.2f}%")
+                stl_display['Residual_Vol'] = stl_display['Residual_Vol'].apply(lambda x: f"{x*100:.2f}%")
+                stl_display['Seasonal_Strength'] = stl_display['Seasonal_Strength'].apply(lambda x: f"{x:.1%}")
+                stl_display.columns = ['자산', 'Trend 변동성', 'Seasonal 변동성', 'Residual 변동성', '계절성 강도']
+
+                st.dataframe(stl_display, width="stretch", hide_index=True)
+
+            # 탭 3: 변동성 분해 차트
+            with tab3:
                 st.subheader("주파수 대역별 변동성 분해")
 
                 freq_bands = ['단기 (5일~3개월)', '중기 (3개월~1년)', '경기순환 (1~5년)', '장기추세 (5년+)']
@@ -464,8 +620,8 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                 with col3:
                     st.success("**해석 가이드**\n\n• 막대가 높을수록 해당 시간 스케일에서 변동성이 큽니다.\n\n• 주파수 대역별 변동성 분포를 통해 리스크가 어느 시간대에 집중되어 있는지 파악할 수 있습니다.")
 
-            # 탭 3: 상관계수 히트맵
-            with tab3:
+            # 탭 4: 상관계수 히트맵
+            with tab4:
                 st.subheader("자산 간 상관계수 행렬")
 
                 # Plotly 히트맵 (개선된 디자인)
@@ -617,37 +773,53 @@ else:
     st.subheader("🧪 샘플 데이터로 테스트")
 
     if st.button("샘플 데이터 생성", type="secondary"):
-        # 샘플 데이터 생성 - 실제 자산 특성 반영
+        # 샘플 데이터 생성 - 실제 자산 특성 + 계절성 패턴 반영
         np.random.seed(42)
-        n_days = 252 * 5  # 5년 (주파수 분석을 위해 충분한 기간)
+        n_days = 252 * 5  # 5년 (STL 분해를 위해 충분한 기간)
         dates = pd.date_range('2019-01-01', periods=n_days, freq='D')
 
-        # 실제 자산 특성을 반영한 수익률 생성
-        # 1. 주식 (KOSPI/S&P500): 연 8-10% 수익률, 변동성 18-20%
-        stock_returns = np.random.normal(0.0004, 0.012, n_days)  # 일 0.04%, 연 10.1%, 변동성 19%
+        # 시간 변수
+        t = np.arange(n_days)
 
-        # 2. 채권 (국고채): 연 3-4% 수익률, 변동성 4-6%
-        bond_returns = np.random.normal(0.00012, 0.003, n_days)  # 일 0.012%, 연 3.0%, 변동성 4.8%
+        # === 계절성 패턴 생성 ===
+        # 월별 계절성 (21일 주기 ≈ 1개월)
+        monthly_seasonal = 0.003 * np.sin(2 * np.pi * t / 21)
 
-        # 3. 금 (Gold): 연 5-7% 수익률, 변동성 15-17%
-        gold_returns = np.random.normal(0.00025, 0.010, n_days)  # 일 0.025%, 연 6.3%, 변동성 15.9%
+        # 분기별 계절성 (63일 주기 ≈ 3개월)
+        quarterly_seasonal = 0.002 * np.sin(2 * np.pi * t / 63)
 
-        # 4. 원자재 (Commodity): 연 4-6% 수익률, 변동성 20-25%
-        commodity_returns = np.random.normal(0.0002, 0.015, n_days)  # 일 0.02%, 연 5.0%, 변동성 23.8%
+        # 경기순환 (5년 주기)
+        business_cycle = 0.004 * np.sin(2 * np.pi * t / 1260)
 
-        # 5. 리츠 (REITs): 연 7-9% 수익률, 변동성 14-16%
-        reit_returns = np.random.normal(0.00035, 0.009, n_days)  # 일 0.035%, 연 8.8%, 변동성 14.3%
+        # 1. 주식: 강한 월별 계절성 + 경기순환
+        stock_returns = (np.random.normal(0.0004, 0.012, n_days) +
+                        1.2 * monthly_seasonal +
+                        1.5 * business_cycle)
 
-        # 상관관계 추가 (주식과 채권은 음의 상관관계)
+        # 2. 채권: 약한 계절성
+        bond_returns = (np.random.normal(0.00012, 0.003, n_days) +
+                       0.3 * monthly_seasonal +
+                       0.5 * business_cycle)
+
+        # 3. 금: 중간 계절성 (위기 시 안전자산)
+        gold_returns = (np.random.normal(0.00025, 0.010, n_days) +
+                       0.6 * monthly_seasonal -
+                       0.8 * business_cycle)  # 경기 역순환
+
+        # 4. 원자재: 강한 분기별 계절성
+        commodity_returns = (np.random.normal(0.0002, 0.015, n_days) +
+                            0.8 * quarterly_seasonal +
+                            2.0 * business_cycle)
+
+        # 5. 리츠: 분기별 계절성 (부동산 시장)
+        reit_returns = (np.random.normal(0.00035, 0.009, n_days) +
+                       1.0 * quarterly_seasonal +
+                       0.8 * business_cycle)
+
+        # 상관관계 추가
         bond_returns = bond_returns - 0.3 * stock_returns + np.random.normal(0, 0.002, n_days)
-
-        # 금은 위기 시 안전자산으로 주식과 약한 음의 상관관계
         gold_returns = gold_returns - 0.15 * stock_returns + np.random.normal(0, 0.008, n_days)
-
-        # 원자재는 주식과 약한 양의 상관관계
         commodity_returns = commodity_returns + 0.2 * stock_returns + np.random.normal(0, 0.012, n_days)
-
-        # 리츠는 주식과 중간 정도 양의 상관관계
         reit_returns = reit_returns + 0.4 * stock_returns + np.random.normal(0, 0.007, n_days)
 
         returns_data = {
@@ -660,6 +832,7 @@ else:
 
         sample_df = pd.DataFrame(returns_data, index=dates)
         st.session_state.returns_df = sample_df
+        st.success("✅ 계절성 패턴이 포함된 샘플 데이터 생성 완료! (5년치, 5개 자산)")
         st.rerun()
 
 # 푸터
