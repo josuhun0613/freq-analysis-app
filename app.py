@@ -70,14 +70,15 @@ if 'selected_stl_asset' not in st.session_state:
 
 # 사이드바 - 프로그램 소개
 with st.sidebar:
-    # 프로그램 소개 박스
+    # 프로그램 소개 박스 (메인 헤더와 통일된 파란색 계열)
     st.markdown("""
     <div style="
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         padding: 20px;
         border-radius: 10px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+        border-left: 4px solid #4CAF50;
     ">
         <h2 style="color: white; margin: 0; font-size: 24px; text-align: center;">
             📊 주파수 영역<br>자산 분석 시스템
