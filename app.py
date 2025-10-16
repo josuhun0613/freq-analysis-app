@@ -114,11 +114,22 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
         with col3:
             st.metric("시작일 ~ 종료일", f"{df.index[0].date()} ~ {df.index[-1].date()}")
 
-        st.dataframe(df.head(10), width='stretch')
+        # 데이터 미리보기 (처음/끝 5개씩)
+        col_preview1, col_preview2 = st.columns(2)
+        with col_preview1:
+            st.markdown("**📌 처음 5일**")
+            st.dataframe(df.head(5), use_container_width=True)
+        with col_preview2:
+            st.markdown("**📌 마지막 5일**")
+            st.dataframe(df.tail(5), use_container_width=True)
 
         # 기본 통계
         with st.expander("📊 기본 통계량 보기"):
             st.dataframe(df.describe(), width='stretch')
+
+        # 전체 데이터 보기
+        with st.expander("📋 전체 데이터 보기"):
+            st.dataframe(df, width='stretch', height=400)
 
         st.divider()
 
