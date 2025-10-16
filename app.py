@@ -21,14 +21,44 @@ st.set_page_config(
     layout="wide"
 )
 
-# 제목
-st.title("📊 주파수 영역 자산 분석 시스템")
+# 제목 (고급스러운 헤더)
 st.markdown("""
-금융기관 자산배분을 위한 고급 포트폴리오 분석 도구입니다.
-
-**주파수 영역 분석**으로 자산군별 변동성을 시간 스케일별로 분해하여 효율적인 자산배분 전략을 수립할 수 있습니다.
-""")
-st.divider()
+<div style="
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e8ba3 100%);
+    padding: 40px 30px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    border-left: 5px solid #4CAF50;
+">
+    <h1 style="
+        color: white;
+        margin: 0;
+        font-size: 42px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+    ">
+        Frequency Domain Asset Analyzer
+    </h1>
+    <h2 style="
+        color: rgba(255,255,255,0.95);
+        margin: 10px 0 0 0;
+        font-size: 22px;
+        font-weight: 400;
+    ">
+        주파수 영역 자산 분석 시스템
+    </h2>
+    <p style="
+        color: rgba(255,255,255,0.85);
+        margin: 20px 0 0 0;
+        font-size: 16px;
+        line-height: 1.6;
+    ">
+        금융기관 자산배분을 위한 고급 포트폴리오 분석 도구입니다.<br>
+        <strong>주파수 영역 분석</strong>으로 자산군별 변동성을 시간 스케일별로 분해하여 효율적인 자산배분 전략을 수립할 수 있습니다.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 # 세션 상태 초기화
 if 'analysis_results' not in st.session_state:
