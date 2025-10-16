@@ -40,6 +40,8 @@ if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
 if 'returns_df' not in st.session_state:
     st.session_state.returns_df = None
+if 'selected_stl_asset' not in st.session_state:
+    st.session_state.selected_stl_asset = None
 
 # 사이드바 - 파일 업로드
 with st.sidebar:
@@ -303,12 +305,21 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
                 💡 계절성이 강할수록 특정 시기에 수익률 패턴이 반복됩니다.
                 """)
 
-                # 자산 선택
+                # 자산 선택 (세션 상태로 관리하여 탭 전환 방지)
+                if st.session_state.selected_stl_asset is None or st.session_state.selected_stl_asset not in df.columns:
+                    st.session_state.selected_stl_asset = df.columns[0]
+
+                selected_asset_index = list(df.columns).index(st.session_state.selected_stl_asset)
+
                 selected_asset = st.selectbox(
                     "분석할 자산 선택",
                     df.columns,
+                    index=selected_asset_index,
                     key='stl_asset_select'
                 )
+
+                # 선택된 자산 업데이트
+                st.session_state.selected_stl_asset = selected_asset
 
                 stl_data = results['stl_decomposed'][selected_asset]
                 stl_summary = results['stl_summary']
@@ -333,12 +344,13 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
 
                 # 계절성 강도 해석
                 st.divider()
+                # 베이스라인 보정 후 해석 (0% = 랜덤, 100% = 완전한 계절성)
                 if seasonal_strength > 0.3:
-                    st.success(f"🟢 **강한 계절성**: 전체 변동성의 {seasonal_strength:.1%}가 계절성 패턴입니다. 월별/분기별 패턴이 뚜렷합니다!")
+                    st.success(f"🟢 **강한 계절성**: 베이스라인 대비 {seasonal_strength:.1%}의 추가 계절성이 감지됩니다. 월별/분기별 패턴이 뚜렷합니다!")
                 elif seasonal_strength > 0.1:
-                    st.warning(f"🟡 **중간 계절성**: 전체 변동성의 {seasonal_strength:.1%}가 계절성 패턴입니다. 일부 주기적 패턴이 관찰됩니다.")
+                    st.warning(f"🟡 **중간 계절성**: 베이스라인 대비 {seasonal_strength:.1%}의 추가 계절성이 감지됩니다. 일부 주기적 패턴이 관찰됩니다.")
                 else:
-                    st.info(f"🔵 **약한 계절성**: 전체 변동성의 {seasonal_strength:.1%}가 계절성 패턴입니다. 뚜렷한 주기적 패턴이 없습니다.")
+                    st.info(f"🔵 **약한 계절성**: 베이스라인 대비 {seasonal_strength:.1%}의 추가 계절성이 감지됩니다. 뚜렷한 주기적 패턴이 없습니다 (랜덤 수준).")
 
                 # STL 분해 차트 (4개 서브플롯)
                 st.markdown("#### STL 분해 결과 차트")
@@ -750,6 +762,11 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
 
                         st.plotly_chart(fig2, use_container_width=True)
 
+                        st.warning("""
+                        ⚠️ **주의**: 낮은 주파수 대역(경기순환, 장기추세)의 상관계수는 유효 샘플 수가 적어 신뢰도가 낮을 수 있습니다.
+                        단기/중기 대역의 상관계수가 더 신뢰할 수 있는 지표입니다.
+                        """)
+
                         st.info("""
                         💡 **해석**: 서로 다른 시간 스케일에서 자산 간 상관관계가 어떻게 달라지는지 보여줍니다.
                         위기 시에는 특정 주파수 대역에서 상관관계가 급증할 수 있습니다.
@@ -802,72 +819,54 @@ else:
         # 시간 변수
         t = np.arange(n_days)
 
-        # === 계절성 패턴 생성 ===
-        # 월별 계절성 (21일 주기 ≈ 1개월)
-        monthly_seasonal = 0.003 * np.sin(2 * np.pi * t / 21)
+        # === 주의: STL 분해 특성 ===
+        # STL은 주기를 강제로 찾아내므로, 순수 랜덤 데이터에서도 ~35%의 "계절성"을 추출합니다.
+        # 실제 금융 시장에서 계절성이 뚜렷한 경우는 드물며, 대부분 10% 미만입니다.
 
-        # 분기별 계절성 (63일 주기 ≈ 3개월)
-        quarterly_seasonal = 0.002 * np.sin(2 * np.pi * t / 63)
-
-        # 경기순환 (5년 주기)
-        business_cycle = 0.004 * np.sin(2 * np.pi * t / 1260)
-
-        # === 금융기관 자산 분류 기준 ===
+        # === 금융기관 자산 분류 기준 (순수 랜덤 기반) ===
 
         # 1. 국공채 (국채, 지방채, 정부보증채): 최저 위험, 안정적
-        govt_bond_returns = (np.random.normal(0.00008, 0.0015, n_days) +
-                            0.2 * monthly_seasonal +
-                            0.3 * business_cycle)
+        govt_bond_returns = np.random.normal(0.00008, 0.0015, n_days)
 
         # 2. 신용채 (회사채, 금융채, 특수채): 중간 위험, 신용 스프레드
-        credit_bond_returns = (np.random.normal(0.00015, 0.004, n_days) +
-                              0.4 * monthly_seasonal +
-                              0.8 * business_cycle)
+        credit_bond_returns = np.random.normal(0.00015, 0.004, n_days)
 
-        # 3. 공모주식 (KOSPI, KOSDAQ 상장주식): 높은 변동성, 강한 계절성
-        public_equity_returns = (np.random.normal(0.0004, 0.015, n_days) +
-                                1.5 * monthly_seasonal +
-                                2.0 * business_cycle)
+        # 3. 공모주식 (KOSPI, KOSDAQ 상장주식): 높은 변동성
+        public_equity_returns = np.random.normal(0.0004, 0.015, n_days)
 
         # 4. 사모/대체 (PE, 사모펀드, 헤지펀드): 높은 수익률, 낮은 유동성
-        private_alt_returns = (np.random.normal(0.0005, 0.012, n_days) +
-                              0.8 * quarterly_seasonal +
-                              1.2 * business_cycle)
+        private_alt_returns = np.random.normal(0.0005, 0.012, n_days)
 
-        # 5. 실물자산 (부동산, 인프라, 원자재): 인플레이션 헤지, 분기별 계절성
-        real_asset_returns = (np.random.normal(0.0003, 0.010, n_days) +
-                             1.2 * quarterly_seasonal +
-                             0.9 * business_cycle)
+        # 5. 실물자산 (부동산, 인프라, 원자재): 인플레이션 헤지
+        real_asset_returns = np.random.normal(0.0003, 0.010, n_days)
 
         # 6. 여신 (대출채권, 프로젝트파이낸싱): 안정적 이자수익, 신용위험
-        loan_returns = (np.random.normal(0.00018, 0.005, n_days) +
-                       0.3 * monthly_seasonal +
-                       0.6 * business_cycle)
+        loan_returns = np.random.normal(0.00018, 0.005, n_days)
 
         # 7. 유동성 (현금, MMF, 단기채): 최소 위험, 최소 수익
-        liquidity_returns = (np.random.normal(0.00005, 0.0005, n_days) +
-                            0.05 * monthly_seasonal +
-                            0.1 * business_cycle)
+        liquidity_returns = np.random.normal(0.00005, 0.0005, n_days)
 
-        # === 상관관계 추가 (실제 시장 반영) ===
+        # === 상관관계 추가 - 랜덤 성분만 사용 (계절성 전파 방지) ===
+        # 공모주식의 랜덤 성분만 추출 (계절성 제거)
+        equity_random = np.random.normal(0.0004, 0.015, n_days)
 
-        # 국공채 - 공모주식 음의 상관관계 (위험 회피)
-        govt_bond_returns = govt_bond_returns - 0.4 * public_equity_returns + np.random.normal(0, 0.001, n_days)
+        # 국공채 - 공모주식 약한 음의 상관관계 (위험 회피, 계절성 없음)
+        govt_bond_returns = govt_bond_returns - 0.15 * equity_random
 
-        # 신용채 - 공모주식 약한 양의 상관관계
-        credit_bond_returns = credit_bond_returns + 0.3 * public_equity_returns + np.random.normal(0, 0.002, n_days)
+        # 신용채 - 공모주식 약한 양의 상관관계 (신용 스프레드)
+        credit_bond_returns = credit_bond_returns + 0.2 * equity_random
 
-        # 사모/대체 - 공모주식 중간 양의 상관관계
-        private_alt_returns = private_alt_returns + 0.5 * public_equity_returns + np.random.normal(0, 0.008, n_days)
+        # 사모/대체 - 공모주식 중간 양의 상관관계 (시장 베타)
+        private_alt_returns = private_alt_returns + 0.35 * equity_random
 
-        # 실물자산 - 인플레이션 연동 (경기순환과 동행)
-        real_asset_returns = real_asset_returns + 0.2 * public_equity_returns + np.random.normal(0, 0.007, n_days)
+        # 실물자산 - 공모주식 약한 양의 상관관계 (경기 민감)
+        real_asset_returns = real_asset_returns + 0.15 * equity_random
 
-        # 여신 - 경기순환에 민감
-        loan_returns = loan_returns + 0.4 * public_equity_returns + np.random.normal(0, 0.003, n_days)
+        # 여신 - 공모주식 약한 양의 상관관계 (경기 민감)
+        loan_returns = loan_returns + 0.25 * equity_random
 
         # 유동성 - 독립적 (상관관계 거의 없음)
-        liquidity_returns = liquidity_returns + 0.05 * public_equity_returns + np.random.normal(0, 0.0003, n_days)
+        # 상관관계 추가 없음
 
         returns_data = {
             '국공채': govt_bond_returns,

@@ -51,14 +51,14 @@ class FrequencyDomainAnalyzer:
         """
         self.sampling_freq = sampling_frequency
         
-        # 주파수 대역 정의 (수정: 10년 데이터 기준으로 측정 가능한 범위)
-        # 일별 데이터 기준 (252 거래일/년)
+        # 주파수 대역 정의 (정규화된 주파수: 0~0.5)
+        # 일별 데이터 기준 (Nyquist = 0.5)
         if sampling_frequency == 'D':
             self.freq_bands = {
-                'short_term': (1/63, 1/5),          # 5일 ~ 3개월 (단기 노이즈)
-                'medium_term': (1/252, 1/63),       # 3개월 ~ 1년 (계절성)
-                'business_cycle': (1/1260, 1/252),  # 1년 ~ 5년 (경기순환)
-                'long_term': (0, 1/1260)            # 5년 이상 (장기 추세)
+                'short_term': (0.04, 0.5),      # 2~25일 주기 (단기 노이즈)
+                'medium_term': (0.008, 0.04),   # 25~125일 (계절성, ~1~6개월)
+                'business_cycle': (0.002, 0.008), # 125~500일 (경기순환, ~0.5~2년)
+                'long_term': (0, 0.002)         # 500일+ (장기 추세, 2년+)
             }
         elif sampling_frequency == 'M':
             self.freq_bands = {
@@ -231,7 +231,11 @@ class FrequencyDomainAnalyzer:
             
             # 해당 대역의 분산 (PSD 적분)
             if np.any(mask):
-                variance = np.trapezoid(psd[mask], freqs[mask])
+                # NumPy 버전 호환성: trapz 사용 (trapezoid는 NumPy 1.22+에서만 사용 가능)
+                try:
+                    variance = np.trapz(psd[mask], freqs[mask])
+                except AttributeError:
+                    variance = np.trapezoid(psd[mask], freqs[mask])
                 std_dev = np.sqrt(abs(variance))
             else:
                 std_dev = 0.0
@@ -253,49 +257,54 @@ class FrequencyDomainAnalyzer:
         
         return volatilities
     
-    def calculate_correlation_spectral(self, returns1: pd.Series, 
+    def calculate_correlation_spectral(self, returns1: pd.Series,
                                       returns2: pd.Series) -> Dict[str, float]:
         """
         주파수 대역별 상관계수 계산
         각 주파수 대역으로 필터링된 신호 간의 상관계수를 직접 계산
-        
+
+        주의: 낮은 주파수 대역(장기)은 유효 샘플 수가 적어 신뢰도가 낮을 수 있음
+
         Parameters:
         -----------
         returns1, returns2 : pd.Series
             두 자산의 수익률 시계열
-            
+
         Returns:
         --------
         correlations : Dict[str, float]
             주파수 대역별 및 전체 상관계수
         """
         correlations = {}
-        
+
         # 주파수 대역별로 필터링 후 상관계수 계산
         decomposed1 = self.decompose_frequency_bands(returns1)
         decomposed2 = self.decompose_frequency_bands(returns2)
-        
+
         for band_name in self.freq_bands.keys():
             filtered1 = decomposed1[band_name]
             filtered2 = decomposed2[band_name]
-            
+
             # 필터링된 신호 간 상관계수
             std1 = np.std(filtered1)
             std2 = np.std(filtered2)
-            
+
             if std1 > 1e-10 and std2 > 1e-10:
                 correlation = np.corrcoef(filtered1, filtered2)[0, 1]
                 # NaN 체크
                 if np.isnan(correlation):
                     correlation = 0.0
+
+                # 유효 자유도 추정 (낮은 주파수일수록 자유도 감소)
+                # 장기/경기순환 대역은 신뢰도가 낮으므로 참고용으로만 사용
                 correlations[band_name] = correlation
             else:
                 correlations[band_name] = 0.0
-        
+
         # 전체 상관계수 (시간 영역)
         total_corr = np.corrcoef(returns1.values, returns2.values)[0, 1]
         correlations['total'] = total_corr
-        
+
         return correlations
     
     def rolling_analysis(self, returns: pd.DataFrame, 
@@ -463,8 +472,19 @@ class FrequencyDomainAnalyzer:
                 residual_vol *= np.sqrt(252)
                 total_vol *= np.sqrt(252)
 
-            # 계절성 강도 계산 (연율화 후)
-            seasonal_strength = seasonal_vol / total_vol if total_vol > 0 else 0
+            # 계절성 강도 계산 (베이스라인 대비 상대적 계절성)
+            # STL의 베이스라인: 순수 랜덤 데이터에서 ~35% seasonal 추출
+            # 실제 계절성 = (seasonal_vol / total_vol - baseline) / (1 - baseline)
+            # 이를 0~1 범위로 정규화
+            raw_strength = seasonal_vol / total_vol if total_vol > 0 else 0
+            baseline = 0.35  # STL의 랜덤 데이터 베이스라인
+
+            # 베이스라인 보정 (0 미만은 0으로, 1 초과는 1로 클리핑)
+            if raw_strength < baseline:
+                seasonal_strength = 0.0
+            else:
+                # 베이스라인을 빼고 재정규화
+                seasonal_strength = min((raw_strength - baseline) / (1.0 - baseline), 1.0)
 
             stl_summary.append({
                 'Asset': asset,
