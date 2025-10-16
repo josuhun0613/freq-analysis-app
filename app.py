@@ -113,8 +113,28 @@ with st.sidebar:
 
     # 데이터 업로드
     st.header("📁 데이터 업로드")
+
+    # 데이터 주기 선택
+    data_frequency = st.radio(
+        "데이터 주기 선택",
+        options=["일별 (Daily)", "월별 (Monthly)"],
+        horizontal=True,
+        help="분석할 데이터의 시간 주기를 선택하세요"
+    )
+
+    # 주기에 따라 sampling_frequency 설정
+    if 'data_frequency' not in st.session_state:
+        st.session_state.data_frequency = 'D'
+
+    if "일별" in data_frequency:
+        st.session_state.data_frequency = 'D'
+        freq_label = "일별"
+    else:
+        st.session_state.data_frequency = 'M'
+        freq_label = "월별"
+
     uploaded_file = st.file_uploader(
-        "CSV 또는 Excel 파일을 업로드하세요",
+        f"CSV 또는 Excel 파일을 업로드하세요 ({freq_label})",
         type=['csv', 'xlsx', 'xls'],
         help="날짜를 인덱스로, 자산 수익률을 컬럼으로 하는 파일을 업로드하세요"
     )
@@ -225,8 +245,8 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
         if analyze_button:
             with st.spinner('분석 중... 잠시만 기다려주세요 ⏳'):
                 try:
-                    # Analyzer 초기화
-                    analyzer = FrequencyDomainAnalyzer(sampling_frequency='D')
+                    # Analyzer 초기화 (선택한 데이터 주기 사용)
+                    analyzer = FrequencyDomainAnalyzer(sampling_frequency=st.session_state.data_frequency)
 
                     # 분석 실행
                     summary_df, corr_matrix = analyzer.generate_summary_report(df)
@@ -901,11 +921,21 @@ else:
     if st.button("샘플 데이터 생성", type="secondary"):
         # 샘플 데이터 생성 - 실제 금융기관 자산배분 기준
         np.random.seed(42)
-        n_days = 252 * 5  # 5년 (STL 분해를 위해 충분한 기간)
-        dates = pd.date_range('2019-01-01', periods=n_days, freq='D')
+
+        # 선택된 주기에 따라 데이터 생성
+        if st.session_state.data_frequency == 'M':
+            # 월별 데이터: 5년 = 60개월
+            n_periods = 12 * 5
+            dates = pd.date_range('2019-01-01', periods=n_periods, freq='MS')  # Month Start
+            freq_label = "월별"
+        else:
+            # 일별 데이터: 5년 = 252 * 5
+            n_periods = 252 * 5
+            dates = pd.date_range('2019-01-01', periods=n_periods, freq='D')
+            freq_label = "일별"
 
         # 시간 변수
-        t = np.arange(n_days)
+        t = np.arange(n_periods)
 
         # === 주의: STL 분해 특성 ===
         # STL은 주기를 강제로 찾아내므로, 순수 랜덤 데이터에서도 ~35%의 "계절성"을 추출합니다.
@@ -914,29 +944,29 @@ else:
         # === 금융기관 자산 분류 기준 (순수 랜덤 기반) ===
 
         # 1. 국공채 (국채, 지방채, 정부보증채): 최저 위험, 안정적
-        govt_bond_returns = np.random.normal(0.00008, 0.0015, n_days)
+        govt_bond_returns = np.random.normal(0.00008, 0.0015, n_periods)
 
         # 2. 신용채 (회사채, 금융채, 특수채): 중간 위험, 신용 스프레드
-        credit_bond_returns = np.random.normal(0.00015, 0.004, n_days)
+        credit_bond_returns = np.random.normal(0.00015, 0.004, n_periods)
 
         # 3. 공모주식 (KOSPI, KOSDAQ 상장주식): 높은 변동성
-        public_equity_returns = np.random.normal(0.0004, 0.015, n_days)
+        public_equity_returns = np.random.normal(0.0004, 0.015, n_periods)
 
         # 4. 사모/대체 (PE, 사모펀드, 헤지펀드): 높은 수익률, 낮은 유동성
-        private_alt_returns = np.random.normal(0.0005, 0.012, n_days)
+        private_alt_returns = np.random.normal(0.0005, 0.012, n_periods)
 
         # 5. 실물자산 (부동산, 인프라, 원자재): 인플레이션 헤지
-        real_asset_returns = np.random.normal(0.0003, 0.010, n_days)
+        real_asset_returns = np.random.normal(0.0003, 0.010, n_periods)
 
         # 6. 여신 (대출채권, 프로젝트파이낸싱): 안정적 이자수익, 신용위험
-        loan_returns = np.random.normal(0.00018, 0.005, n_days)
+        loan_returns = np.random.normal(0.00018, 0.005, n_periods)
 
         # 7. 유동성 (현금, MMF, 단기채): 최소 위험, 최소 수익
-        liquidity_returns = np.random.normal(0.00005, 0.0005, n_days)
+        liquidity_returns = np.random.normal(0.00005, 0.0005, n_periods)
 
         # === 상관관계 추가 - 랜덤 성분만 사용 (계절성 전파 방지) ===
         # 공모주식의 랜덤 성분만 추출 (계절성 제거)
-        equity_random = np.random.normal(0.0004, 0.015, n_days)
+        equity_random = np.random.normal(0.0004, 0.015, n_periods)
 
         # 국공채 - 공모주식 약한 음의 상관관계 (위험 회피, 계절성 없음)
         govt_bond_returns = govt_bond_returns - 0.15 * equity_random
@@ -968,7 +998,7 @@ else:
 
         sample_df = pd.DataFrame(returns_data, index=dates)
         st.session_state.returns_df = sample_df
-        st.success("✅ 금융기관 자산배분 기준 샘플 데이터 생성 완료! (5년치, 7개 자산군)")
+        st.success(f"✅ 금융기관 자산배분 기준 샘플 데이터 생성 완료! ({freq_label}, 5년치, 7개 자산군)")
         st.rerun()
 
 # 푸터

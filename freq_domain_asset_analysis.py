@@ -439,7 +439,7 @@ class FrequencyDomainAnalyzer:
                 'residual': residual.fillna(0)
             }
 
-    def generate_stl_summary(self, returns: pd.DataFrame, period: int = 21) -> pd.DataFrame:
+    def generate_stl_summary(self, returns: pd.DataFrame, period: int = None) -> pd.DataFrame:
         """
         전체 자산에 대한 STL 분해 요약 생성
 
@@ -447,14 +447,24 @@ class FrequencyDomainAnalyzer:
         -----------
         returns : pd.DataFrame
             자산들의 수익률
-        period : int
-            계절성 주기
+        period : int, optional
+            계절성 주기 (None이면 sampling_frequency에 따라 자동 설정)
+            일별: 21 (월별 패턴), 월별: 12 (연별 패턴)
 
         Returns:
         --------
         summary : pd.DataFrame
             자산별 STL 분해 통계량
         """
+        # 주기 자동 설정
+        if period is None:
+            if self.sampling_freq == 'D':
+                period = 21  # 일별 데이터: 월별 패턴 (21 거래일)
+            elif self.sampling_freq == 'M':
+                period = 12  # 월별 데이터: 연별 패턴 (12개월)
+            else:
+                period = 12  # 기본값
+
         stl_summary = []
 
         for asset in returns.columns:
@@ -471,6 +481,11 @@ class FrequencyDomainAnalyzer:
                 seasonal_vol *= np.sqrt(252)
                 residual_vol *= np.sqrt(252)
                 total_vol *= np.sqrt(252)
+            elif self.sampling_freq == 'M':
+                trend_vol *= np.sqrt(12)
+                seasonal_vol *= np.sqrt(12)
+                residual_vol *= np.sqrt(12)
+                total_vol *= np.sqrt(12)
 
             # 계절성 강도 계산 (베이스라인 대비 상대적 계절성)
             # STL의 베이스라인: 순수 랜덤 데이터에서 ~35% seasonal 추출
