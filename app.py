@@ -43,8 +43,50 @@ if 'returns_df' not in st.session_state:
 if 'selected_stl_asset' not in st.session_state:
     st.session_state.selected_stl_asset = None
 
-# 사이드바 - 파일 업로드
+# 사이드바 - 프로그램 소개
 with st.sidebar:
+    # 프로그램 소개 박스
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    ">
+        <h2 style="color: white; margin: 0; font-size: 24px; text-align: center;">
+            📊 주파수 영역<br>자산 분석 시스템
+        </h2>
+        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px; text-align: center;">
+            Frequency Domain Asset Analyzer
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 주요 기능 소개
+    st.markdown("""
+    ### ✨ 주요 기능
+
+    **🔬 주파수 분해 분석**
+    - 단기/중기/장기 변동성 분석
+    - 시간 스케일별 리스크 파악
+
+    **📅 STL 계절성 분석**
+    - 월별/분기별 패턴 감지
+    - 추세/계절성/잔차 분해
+
+    **🔗 상관관계 분석**
+    - 자산 간 상관계수 히트맵
+    - 주파수별 상관관계 변화
+
+    **📊 시각화 & 리포트**
+    - 대화형 차트 (Plotly)
+    - Excel 다운로드
+    """)
+
+    st.divider()
+
+    # 데이터 업로드
     st.header("📁 데이터 업로드")
     uploaded_file = st.file_uploader(
         "CSV 또는 Excel 파일을 업로드하세요",
@@ -54,42 +96,52 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("""
-    ### 📋 데이터 형식
-    - **인덱스**: 날짜 (YYYY-MM-DD)
-    - **컬럼**: 자산군명
-    - **값**: 일별 수익률
-    - **기간**: 최소 3년, 권장 5년 이상
+    # 데이터 형식 가이드 (접을 수 있게)
+    with st.expander("📋 데이터 형식 가이드"):
+        st.markdown("""
+        **필수 형식:**
+        - 인덱스: 날짜 (YYYY-MM-DD)
+        - 컬럼: 자산군명
+        - 값: 일별 수익률
+        - 기간: 최소 3년, 권장 5년+
 
-    ### 💼 자산군 예시
-    ```
-    날짜        국공채  신용채  공모주식
-    2020-01-01  0.0001  0.0002  0.01
-    2020-01-02  0.0002  0.0001 -0.005
-    ...
-    ```
+        **예시:**
+        ```
+        날짜        국공채   신용채   공모주식
+        2020-01-01  0.0001  0.0002   0.01
+        2020-01-02  0.0002  0.0001  -0.005
+        ```
+        """)
 
-    ### 🏦 금융기관 자산 분류
-    - **국공채**: 국채, 지방채, 정부보증채
-    - **신용채**: 회사채, 금융채, 특수채
-    - **공모주식**: 상장주식 (KOSPI, KOSDAQ)
-    - **사모/대체**: PE, 헤지펀드, 사모펀드
-    - **실물자산**: 부동산, 인프라, 원자재
-    - **여신**: 대출채권, PF
-    - **유동성**: 현금, MMF, 단기채
+    # 자산군 분류 (접을 수 있게)
+    with st.expander("🏦 금융기관 자산 분류"):
+        st.markdown("""
+        - **국공채**: 국채, 지방채
+        - **신용채**: 회사채, 금융채
+        - **공모주식**: KOSPI, KOSDAQ
+        - **사모/대체**: PE, 헤지펀드
+        - **실물자산**: 부동산, 인프라
+        - **여신**: 대출채권, PF
+        - **유동성**: 현금, MMF
+        """)
 
-    ---
+    # 방법론 설명 (접을 수 있게)
+    with st.expander("💡 주파수 분석이란?"):
+        st.markdown("""
+        자산 변동을 시간 스케일별로 분해:
 
-    ### 💡 주파수 분석이란?
-    자산의 변동을 여러 시간 스케일로 분해:
-    - **단기** (5일~3개월): 시장 노이즈
-    - **중기** (3개월~1년): 계절성 패턴
-    - **경기순환** (1~5년): 경기 사이클
-    - **장기추세** (5년+): 구조적 변화
+        - **단기** (2~25일)
+          시장 노이즈
 
-    각 시간대별 리스크와 상관관계를 파악하여
-    효율적인 자산배분 전략을 수립합니다.
-    """)
+        - **중기** (25~125일)
+          계절성 패턴
+
+        - **경기순환** (125~500일)
+          경기 사이클
+
+        - **장기추세** (500일+)
+          구조적 변화
+        """)
 
 # 메인 영역
 if uploaded_file is not None or st.session_state.returns_df is not None:
