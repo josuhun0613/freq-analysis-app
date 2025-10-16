@@ -318,22 +318,27 @@ if uploaded_file is not None or st.session_state.returns_df is not None:
 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Trend 변동성", f"{asset_stl['Trend_Vol']*100:.2f}%")
+                    st.metric("Trend 변동성 (연율화)", f"{asset_stl['Trend_Vol']*100:.2f}%")
                 with col2:
-                    st.metric("Seasonal 변동성", f"{asset_stl['Seasonal_Vol']*100:.2f}%")
+                    st.metric("Seasonal 변동성 (연율화)", f"{asset_stl['Seasonal_Vol']*100:.2f}%")
                 with col3:
-                    st.metric("Residual 변동성", f"{asset_stl['Residual_Vol']*100:.2f}%")
+                    st.metric("Residual 변동성 (연율화)", f"{asset_stl['Residual_Vol']*100:.2f}%")
                 with col4:
                     seasonal_strength = asset_stl['Seasonal_Strength']
-                    st.metric("계절성 강도", f"{seasonal_strength:.1%}")
+                    st.metric(
+                        "계절성 강도 (비율)",
+                        f"{seasonal_strength:.1%}",
+                        help="전체 변동성 중 계절성 성분이 차지하는 비율"
+                    )
 
                 # 계절성 강도 해석
+                st.divider()
                 if seasonal_strength > 0.3:
-                    st.success("🟢 **강한 계절성**: 월별/분기별 패턴이 뚜렷합니다!")
+                    st.success(f"🟢 **강한 계절성**: 전체 변동성의 {seasonal_strength:.1%}가 계절성 패턴입니다. 월별/분기별 패턴이 뚜렷합니다!")
                 elif seasonal_strength > 0.1:
-                    st.warning("🟡 **중간 계절성**: 일부 주기적 패턴이 관찰됩니다.")
+                    st.warning(f"🟡 **중간 계절성**: 전체 변동성의 {seasonal_strength:.1%}가 계절성 패턴입니다. 일부 주기적 패턴이 관찰됩니다.")
                 else:
-                    st.info("🔵 **약한 계절성**: 뚜렷한 주기적 패턴이 없습니다.")
+                    st.info(f"🔵 **약한 계절성**: 전체 변동성의 {seasonal_strength:.1%}가 계절성 패턴입니다. 뚜렷한 주기적 패턴이 없습니다.")
 
                 # STL 분해 차트 (4개 서브플롯)
                 st.markdown("#### STL 분해 결과 차트")

@@ -456,14 +456,15 @@ class FrequencyDomainAnalyzer:
             residual_vol = np.std(stl_result['residual'].dropna())
             total_vol = np.std(returns[asset])
 
-            # 계절성 강도 계산
-            seasonal_strength = seasonal_vol / total_vol if total_vol > 0 else 0
-
             # 연율화
             if self.sampling_freq == 'D':
                 trend_vol *= np.sqrt(252)
                 seasonal_vol *= np.sqrt(252)
                 residual_vol *= np.sqrt(252)
+                total_vol *= np.sqrt(252)
+
+            # 계절성 강도 계산 (연율화 후)
+            seasonal_strength = seasonal_vol / total_vol if total_vol > 0 else 0
 
             stl_summary.append({
                 'Asset': asset,
